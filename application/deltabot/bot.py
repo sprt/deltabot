@@ -498,7 +498,7 @@ class CommentsConsumer(ItemsConsumer):
     PROCESSOR = DeltaAdder
     PLACEHOLDER_KEY = 'comments'
     PROCESSED_KEY = 'processed_comments:{}'
-    # XXX: ignore deleted threads
+    
     def _fetch_items(self):
         r = utils.get_reddit()
         return r.get_comments(config.SUBREDDIT, limit=None,
