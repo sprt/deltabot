@@ -182,7 +182,7 @@ class CommentProcessor(ItemProcessor):
     def _update_reddit(self):
         awarder_comment = self._awarder_comment
         awardee_username = self._awardee_comment.author.name
-        # utils.defer_reddit(update_comment_submission_flair, awarder_comment)
+        utils.defer_reddit(update_comment_submission_flair, awarder_comment)
         utils.defer_reddit(update_user_flair, awardee_username)
         utils.defer_reddit(update_user_wiki_page, awardee_username)
     
