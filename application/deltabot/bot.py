@@ -173,6 +173,7 @@ class CommentProcessor(ItemProcessor):
                                            error=error)
         self._message.reply(reply_text)
     
+    @ndb.transactional
     def _update_reddit(self):
         awarder_comment = self._awarder_comment
         awardee_username = self._awardee_comment.author.name
@@ -188,6 +189,7 @@ class CommentProcessor(ItemProcessor):
         if not is_queuable and self._message:
             utils.defer_reddit(self._reply_to_message, error)
     
+    @ndb.transactional
     def after_processing(self, is_processable, not_processable_reason):
         error = getattr(not_processable_reason, 'name', None)
         if self._message:
@@ -195,6 +197,7 @@ class CommentProcessor(ItemProcessor):
         if is_processable or not self._message:
             utils.defer_reddit(self._reply_to_comment, error)
     
+    @ndb.transactional
     def _do_processing(self):
         self._update_records()
         self._update_reddit()
