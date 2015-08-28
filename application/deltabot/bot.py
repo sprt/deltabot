@@ -354,6 +354,14 @@ class DeltaRemover(CommentProcessor):
     def _update_records(self):
         self._stored_delta.status = 'removed_' + self._removal_reason
         self._stored_delta.put()
+    
+    @ndb.transactional
+    def _do_processing(self):
+        super(DeltaRemover, self)._do_processing()
+        
+        if self._removal_reason == 'remind':
+            reply_text = utils.render_template('comments/remind.md')
+            utils.defer_reddit(self._awarder_comment.reply, reply_text)
 
 
 class CommandMessageProcessor(ItemProcessor):
