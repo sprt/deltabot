@@ -397,7 +397,7 @@ class CommandMessageProcessor(ItemProcessor):
         self._remove('abuse')
     
     def _cmd_remove_low_effort(self):
-        self._remove('low effort')
+        self._remove('low_effort')
     
     def _cmd_remove_remind(self):
         self._remove('remind')
