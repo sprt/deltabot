@@ -42,16 +42,20 @@ def update_comment_submission_flair(awarder_comment):
     r.set_flair(config.SUBREDDIT, submission, '[Deltas Awarded]', 'OPdelta')
 
 
+# XXX: ignore removed
+def _get_user_deltas(username):
+    qry = utils.ndb_query(Delta, Delta.awarded_to == username)
+    qry_ordered = qry.order(-Delta.awarded_at)
+    return qry_ordered.fetch()
+
+
 # Deferred
 def update_user_wiki_page(username):
     logging.debug("Updating /u/{}'s wiki page".format(username))
     
-    qry = utils.ndb_query(Delta, Delta.awarded_to == username)
-    qry_ordered = qry.order(-Delta.awarded_at)
-    user_deltas = qry_ordered.fetch()
-    
+    deltas = _get_user_deltas(username)
     content_md = utils.render_template('wiki/user_history.md',
-                                       username=username, deltas=user_deltas)
+                                       username=username, deltas=deltas)
     
     r = utils.get_reddit()
     r.edit_wiki_page(config.SUBREDDIT, 'user/{}'.format(username), content_md)

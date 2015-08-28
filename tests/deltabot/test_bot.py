@@ -17,6 +17,13 @@ config.DELTA_ALIASES = ('!plus',)
 config.SUBREDDIT = 'testsub'
 
 
+def init_datastore_stub(function):
+    policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=0)
+    function.testbed.init_datastore_v3_stub(consistency_policy=policy)
+    function.testbed.init_memcache_stub()
+    ndb.get_context().set_cache_policy(False)
+
+
 # See <https://github.com/testing-cabal/mock/issues/139#issuecomment-94939404>
 class PickableMock(Mock):
     def __reduce__(self):
@@ -112,15 +119,23 @@ class TestCommentsConsumer(unittest.TestCase, DatastoreTestMixin,
         returned_items = self.consumer._fetch_items()
         assert returned_items == reddit_class.return_value.get_comments(
             'testsub', limit=None, placeholder='a')
+
+
+@patch('application.deltabot.utils.praw.Reddit')
+class TestMessagesConsumer(unittest.TestCase, DatastoreTestMixin,
+                           TaskQueueTestMixin):
+    def setUp(self):
+        self.consumer = bot.MessagesConsumer()
     
-    # def test_fetch_items_strips_replies(self, reddit_class):
-    #     item = Mock(replies=[])
-    #     reddit_class.return_value.get_messages.return_value = iter([item])
-    #     returned_items = self.consumer._fetch_items()
-    #     assert not hasattr(next(returned_items), 'replies')
-
-
-# # -----------------------------------------------------------------------------
+    def test_fetch_items_strips_replies(self, reddit_class):
+        item = Mock(replies=[])
+        
+        reddit_class.return_value.get_messages.return_value = iter([item])
+        
+        self.consumer._placeholder = None
+        returned_items = self.consumer._fetch_items()
+        
+        assert not hasattr(next(returned_items), 'replies')
 
 
 class TestGenerateUserFlair(unittest.TestCase, DatastoreTestMixin,
@@ -145,77 +160,77 @@ class TestGenerateUserFlair(unittest.TestCase, DatastoreTestMixin,
         assert bot._generate_user_flair('stranger') == ''
 
 
-# @patch('application.deltabot.utils.praw.Reddit')
-# def test_update_user_flair(reddit_class):
-#     _datastore_test_setup(test_update_user_flair)
-#     bot.update_user_flair('john')
-#     assert reddit_class.return_value.set_flair.called
+@patch('application.deltabot.utils.praw.Reddit')
+def test_update_user_flair(reddit_class):
+    init_datastore_stub(test_update_user_flair)
+    bot.update_user_flair('john')
+    assert reddit_class.return_value.set_flair.called
 
 
-# def test_get_user_deltas():
-#     _datastore_test_setup(test_update_user_flair)
+def test_get_user_deltas():
+    init_datastore_stub(test_get_user_deltas)
     
-#     def make_delta(**kwargs):
-#         defaults = {
-#             'awarded_by': 'mary',
-#             'awarded_to': 'john',
-#             'awarder_comment_id': 'foo',
-#             'awarder_comment_url': 'http://awardercomment/',
-#             'submission_id': 'sbmsn',
-#             'submission_title': 'Blah',
-#             'submission_url': 'http://linkurl/',
-#         }
-#         delta = utils.ndb_model(Delta)
-#         delta.populate(**defaults)
-#         delta.populate(**kwargs)
-#         return delta
+    def make_delta(**kwargs):
+        defaults = {
+            'awarded_by': 'mary',
+            'awarded_to': 'john',
+            'awarder_comment_id': 'foo',
+            'awarder_comment_url': 'http://awardercomment/',
+            'submission_id': 'sbmsn',
+            'submission_title': 'Blah',
+            'submission_url': 'http://linkurl/',
+        }
+        delta = utils.ndb_model(Delta)
+        delta.populate(**defaults)
+        delta.populate(**kwargs)
+        return delta
     
-#     now = datetime.now()
-#     delta1 = make_delta(awarded_at=now)
-#     delta2 = make_delta(awarded_at=now + timedelta(seconds=1))
-#     ndb.put_multi([delta1, delta2])
+    now = datetime.now()
+    delta1 = make_delta(awarded_at=now)
+    delta2 = make_delta(awarded_at=now + timedelta(seconds=1))
+    ndb.put_multi([delta1, delta2])
     
-#     assert bot._get_user_deltas('john') == [delta2, delta1]
+    assert bot._get_user_deltas('john') == [delta2, delta1]
 
 
-# @patch('application.deltabot.utils.praw.Reddit')
-# def test_update_user_wiki_page(reddit_class):
-#     _datastore_test_setup(test_update_user_wiki_page)
-#     bot.update_user_wiki_page('john')
-#     assert reddit_class.return_value.edit_wiki_page.called
+@patch('application.deltabot.utils.praw.Reddit')
+def test_update_user_wiki_page(reddit_class):
+    init_datastore_stub(test_update_user_wiki_page)
+    bot.update_user_wiki_page('john')
+    assert reddit_class.return_value.edit_wiki_page.called
 
 
-# def test_get_deltas_grouped_by_users():
-#     _datastore_test_setup(test_get_user_deltas)
+def test_get_deltas_grouped_by_users():
+    init_datastore_stub(test_get_deltas_grouped_by_users)
     
-#     def make_delta(**kwargs):
-#         defaults = {
-#             'awarded_by': 'mary',
-#             'awarder_comment_id': 'foo',
-#             'awarder_comment_url': 'http://awardercomment/',
-#             'submission_id': 'sbmsn',
-#             'submission_title': 'Blah',
-#             'submission_url': 'http://linkurl/',
-#         }
-#         delta = utils.ndb_model(Delta)
-#         delta.populate(**defaults)
-#         delta.populate(**kwargs)
-#         return delta
+    def make_delta(**kwargs):
+        defaults = {
+            'awarded_by': 'mary',
+            'awarder_comment_id': 'foo',
+            'awarder_comment_url': 'http://awardercomment/',
+            'submission_id': 'sbmsn',
+            'submission_title': 'Blah',
+            'submission_url': 'http://linkurl/',
+        }
+        delta = utils.ndb_model(Delta)
+        delta.populate(**defaults)
+        delta.populate(**kwargs)
+        return delta
     
-#     now = datetime.now()
-#     delta1 = make_delta(awarded_at=now, awarded_to='jo')
-#     delta2 = make_delta(awarded_at=now + timedelta(seconds=1), awarded_to='jo')
-#     delta3 = make_delta(awarded_at=now, awarded_to='sally')
-#     ndb.put_multi([delta1, delta2, delta3])
+    now = datetime.now()
+    delta1 = make_delta(awarded_at=now, awarded_to='jo')
+    delta2 = make_delta(awarded_at=now + timedelta(seconds=1), awarded_to='jo')
+    delta3 = make_delta(awarded_at=now, awarded_to='sally')
+    ndb.put_multi([delta1, delta2, delta3])
     
-#     assert bot._get_deltas_grouped_by_users() == [delta2, delta3]
+    assert bot._get_deltas_grouped_by_users() == [delta2, delta3]
 
 
-# @patch('application.deltabot.utils.praw.Reddit')
-# def test_update_tracker_wiki_page(reddit_class):
-#     _datastore_test_setup(test_get_user_deltas)
-#     bot.update_tracker_wiki_page()
-#     assert reddit_class.return_value.edit_wiki_page.called
+@patch('application.deltabot.utils.praw.Reddit')
+def test_update_tracker_wiki_page(reddit_class):
+    init_datastore_stub(test_update_tracker_wiki_page)
+    bot.update_tracker_wiki_page()
+    assert reddit_class.return_value.edit_wiki_page.called
 
 
 class TestHasDeltaToken(unittest.TestCase):
@@ -289,16 +304,9 @@ class TestCommentProcessorBase(unittest.TestCase, DatastoreTestMixin,
         self.processor = bot.CommentProcessor(self.awarder_comment)
         self.processor._awarder_comment_url = 'http://awardercomment/'
     
-    # def test_awarder_username(self, _):
-    #     assert self.processor._awarder_username == 'john'
-    
     def test_awardee_comment(self, reddit_class):
         reddit_class.return_value.get_info.return_value = self.awardee_comment
         assert self.processor._awardee_comment.id == 'parent'
-    
-    # def test_awardee_username(self, reddit_class):
-    #     reddit_class.return_value.get_info.return_value = self.awardee_comment
-    #     assert self.processor._awardee_username == 'mary'
     
     # def test_update_records(self, reddit_class):
     #     reddit_class.return_value.get_info.return_value = self.awardee_comment
@@ -554,7 +562,7 @@ class TestCommentProcessorValidDelta(unittest.TestCase, DatastoreTestMixin,
 # @patch('application.deltabot.utils.deferred.defer', wraps=deferred.defer)
 # @patch('application.deltabot.utils.praw.Reddit')
 # def test_comment_consumer(reddit_class, defer_func):
-#     _datastore_test_setup(test_comment_consumer)
+#     init_datastore_stub(test_comment_consumer)
 #     test_comment_consumer.testbed.init_taskqueue_stub(
 #         root_path=os.path.join(os.path.dirname(__file__), '../..'))
     
@@ -573,7 +581,7 @@ class TestCommentProcessorValidDelta(unittest.TestCase, DatastoreTestMixin,
 #     utils.KVStore_set('placeholder', 'd')
 #     utils.KVStore_set('processed_comments:d')
 #     utils.KVStore_set('processed_comments:e')
-#     consumer = bot.CommentConsumer()
+#     consumer = bot.CommentsConsumer()
 #     consumer.run()
     
 #     bot.CommentProcessor.__eq__ = (
