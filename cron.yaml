@@ -1,0 +1,3 @@
+cron:
+- url: /crons/consumecomments
+  schedule: every 10 minutes synchronized

@@ -1,0 +1,38 @@
+application: deltabot
+version: v1
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /_ah/queue/deferred
+  script: google.appengine.ext.deferred.deferred.application
+  login: admin
+- url: /crons/.*
+  script: application.app
+  login: admin
+- url: /.*
+  script: application.app
+
+builtins:
+- appstats: on
+- deferred: on
+
+inbound_services:
+- warmup
+
+automatic_scaling:
+ min_idle_instances: 1
+ max_idle_instances: 1
+
+skip_files:
+- ^(.*/)?#.*#$
+- ^(.*/)?.*~$
+- ^(.*/)?.*\.py[co]$
+- ^(.*/)?.*/RCS/.*$
+- ^(.*/)?\..*$
+- ^(.*/)?.*\.egg-info$
+- ^(.*/)?.*\.dist-info$
+- ^lib/(pip|py|setuptools|tox|virtualenv(_support)?)(-|/)
+- ^lib/(easy_install|pkg_resources|pluggy)\.py
+- ^lib-test

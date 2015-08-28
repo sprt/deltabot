@@ -1,0 +1,19 @@
+# coding: utf-8
+import os
+
+BOT_USERNAME = 'mybot'
+DELTA = u'∆'
+DELTA_ALIASES = ('!delta',)
+
+if os.environ['REDDIT_SITE'] == 'prod':
+    SUBREDDIT = 'yoursub'
+    USER_AGENT = 'Delta/1.0 (by /u/you)'
+    OAUTH_REFRESH_TOKEN = 'XXXXX'
+else:  # dev
+    SUBREDDIT = 'devsub'
+    USER_AGENT = 'script:Delta:dev (by /u/you)'
+    OAUTH_REFRESH_TOKEN = 'XXXXX'
+
+
+def delta_tokens():
+    return (DELTA,) + DELTA_ALIASES
