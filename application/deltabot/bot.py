@@ -133,12 +133,11 @@ class CommentProcessor(ItemProcessor):
         qry = utils.ndb_query(Delta, Delta.awarder_comment_id == comment_id)
         return qry.get()
     
-    # Deferred
     def _reply_to_comment(self, error):
-        reply_text = self._get_comment_reply(error)
-        
-        if not reply_text:
-            return
+        awardee_username = getattr(self._awarder_comment.author, 'name', None)
+        reply_text = utils.render_template(self.COMMENT_TEMPLATE,
+                                           awardee_username=awardee_username,
+                                           error=error)
         
         reply = self._awarder_comment.reply(reply_text)
         
@@ -153,31 +152,12 @@ class CommentProcessor(ItemProcessor):
             # XXX: We should probably find a workaround anyway.
             logging.warning("Couldn't distinguish comment")
     
-    # Deferred
-    def _confirm_queuing(self, error):
-        if error and self._message:
-            awardee_username = self._awardee_comment.author.name
-            reply_text = utils.render_template(
-                self.MESSAGE_TEMPLATE, error=error,
-                awardee_username=awardee_username)
-            self._message.reply(reply_text)
-    
-    # Deferred
-    def _confirm_processed(self, error):
-        awardee_username = self._awardee_comment.author.name
-        
-        if self._message:
-            reply_text = utils.render_template(
-                self.MESSAGE_TEMPLATE, error=error,
-                awardee_username=awardee_username)
-            self._message.reply(reply_text)
-        
-        if not self._message or not error:
-            reply_text = utils.render_template(
-                self.COMMENT_TEMPLATE, error=error,
-                awardee_username=awardee_username)
-            reply = self._awarder_comment.reply(reply_text)
-            reply.distinguish()
+    def _reply_to_message(self, error):
+        awardee_username = getattr(self._awarder_comment.author, 'name', None)
+        reply_text = utils.render_template(self.MESSAGE_TEMPLATE,
+                                           awardee_username=awardee_username,
+                                           error=error)
+        self._message.reply(reply_text)
     
     def _update_reddit(self):
         awarder_comment = self._awarder_comment
@@ -190,10 +170,16 @@ class CommentProcessor(ItemProcessor):
         raise NotImplementedError
     
     def before_queuing(self, is_queuable, not_queuable_reason):
-        self._confirm_queuing(not_queuable_reason)
+        error = getattr(not_queuable_reason, 'name', None)
+        if not is_queuable and self._message:
+            utils.defer_reddit(self._reply_to_message, error)
     
     def after_processing(self, is_processable, not_processable_reason):
-        self._confirm_processed(not_processable_reason)
+        error = getattr(not_processable_reason, 'name', None)
+        if self._message:
+            utils.defer_reddit(self._reply_to_message, error)
+        if is_processable or not self._message:
+            utils.defer_reddit(self._reply_to_comment, error)
     
     def _do_processing(self):
         self._update_records()
