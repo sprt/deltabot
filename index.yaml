@@ -33,3 +33,9 @@ indexes:
   - name: awarded_to
   - name: awarded_at
     direction: desc
+
+- kind: Delta
+  ancestor: yes
+  properties:
+  - name: awarded_to
+  - name: status

@@ -13,27 +13,34 @@ from . import config, utils
 from .models import Delta
 
 
-def _generate_user_flair(username):
+def _query_user_deltas(username):
     qry = utils.ndb_query(Delta, Delta.awarded_to == username)
-    delta_count = qry.count(keys_only=True)
-    # XXX: use delete_flair instead
-    return str(delta_count) + config.DELTA if delta_count else ''
+    return Delta.filter_removed(qry)
+
+
+def _get_user_delta_count(username):
+    return _query_user_deltas(username).count(keys_only=True)
 
 
 # Deferred
 def update_user_flair(username):
     logging.debug("Updating /u/{}'s flair".format(username))
+    
     r = utils.get_reddit()
-    r.set_flair(config.SUBREDDIT, username, _generate_user_flair(username))
+    delta_count = _get_user_delta_count(username)
+    
+    if delta_count == 0:
+        r.delete_flair(config.SUBREDDIT, username)
+    else:
+        flair_text = str(delta_count) + config.DELTA
+        r.set_flair(config.SUBREDDIT, username, flair_text)
 
 
 # Deferred
-def update_comment_submission_flair(awarder_comment):
+def update_submission_flair(awarder_comment):
     logging.debug('Updating flair of submission (comment {})'
                   .format(awarder_comment.id))
     
-    # XXX: test this line
-    # XXX: [deleted]?
     if awarder_comment.author.name != awarder_comment.link_author:
         return
     
@@ -42,11 +49,14 @@ def update_comment_submission_flair(awarder_comment):
     r.set_flair(config.SUBREDDIT, submission, '[Deltas Awarded]', 'OPdelta')
 
 
-# XXX: ignore removed
 def _get_user_deltas(username):
-    qry = utils.ndb_query(Delta, Delta.awarded_to == username)
-    qry_ordered = qry.order(-Delta.awarded_at)
-    return qry_ordered.fetch()
+    qry = _query_user_deltas(username)
+    deltas = qry.fetch()
+    # Have to sort manually since NDB requires that the first sort
+    # property must be the same as the property to which the inequality
+    # filter is applied.
+    deltas.sort(key=attrgetter('awarded_at'), reverse=True)
+    return deltas
 
 
 # Deferred
@@ -166,7 +176,7 @@ class CommentProcessor(ItemProcessor):
     def _update_reddit(self):
         awarder_comment = self._awarder_comment
         awardee_username = self._awardee_comment.author.name
-        utils.defer_reddit(update_comment_submission_flair, awarder_comment)
+        utils.defer_reddit(update_submission_flair, awarder_comment)
         utils.defer_reddit(update_user_flair, awardee_username)
         utils.defer_reddit(update_user_wiki_page, awardee_username)
     
@@ -226,11 +236,6 @@ class DeltaAdder(CommentProcessor):
         text = self.RE_INLINE_CODE.sub('', text)
         delta_tokens = (config.DELTA,) + config.DELTA_ALIASES
         return any((token in text) for token in delta_tokens)
-    
-    def _get_comment_reply(self, error):
-        awardee_username = self._awardee_comment.author.name
-        return utils.render_template('comments/delta.md', error=error,
-                                     awardee_username=awardee_username)
     
     def _update_records(self):
         awarded_at = datetime.fromtimestamp(self._awarder_comment.created_utc)
@@ -414,6 +419,10 @@ class CommandMessageProcessor(ItemProcessor):
             return None
         r = utils.get_reddit()
         comment = r.get_info(thing_id='t1_{}'.format(comment_id))
+        # link_author and link_url aren't available so we have to fetch them
+        submission = comment.submission
+        comment.link_author = getattr(submission.author, 'name', None)
+        comment.link_url = submission.url
         return comment if comment else None
     
     def _is_queuable(self):
