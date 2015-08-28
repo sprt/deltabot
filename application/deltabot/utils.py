@@ -65,7 +65,7 @@ def get_reddit():
             refresh_access_info()
     else:
         refresh_access_info()
-    print r._authentication
+    
     return r
 
 
