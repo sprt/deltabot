@@ -307,7 +307,7 @@ class TestItemsConsumer(unittest.TestCase, DatastoreTestMixin,
     def test_process_item_not_already_processed(self):
         self.consumer._process_item(Mock(id='a'))
         taskqueue_stub = self.testbed.get_stub('taskqueue')
-        assert self.consumer.PROCESSOR.return_value.queue.called
+        assert self.consumer.PROCESSOR.return_value.run.called
     
     def test_process_item_already_processed(self):
         utils.KVStore_set('foos_processed:a')

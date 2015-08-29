@@ -97,36 +97,37 @@ def update_tracker_wiki_page():
     r.edit_wiki_page(config.SUBREDDIT, 'deltabot/tracker', content_md)
 
 
+class BooleanReason(object):
+    def __init__(self, reason_not):
+        self.reason_not = reason_not
+    
+    def __nonzero__(self):
+        return self.reason_not is None
+
+
 class ItemProcessor(object):
-    NotQueuableReason = None
-    NotProcessableReason = None
+    @cached_property
+    def _is_queuable(self):
+        return BooleanReason(self._check_queuable())
     
-    def _is_queueable(self):
-        raise NotImplementedError
-    
+    @cached_property
     def _is_processable(self):
+        return BooleanReason(self._check_processable())
+    
+    def _check_queuable(self):
         raise NotImplementedError
     
-    def before_queuing(self, is_queuable, not_queuable_reason):
-        pass
+    def _check_processable(self):
+        raise NotImplementedError
     
-    def after_processing(self, is_processable, not_processable_reason):
-        pass
-    
-    def _do_processing(self):
+    def _queue(self):
         raise NotImplementedError
     
     def _process(self):
-        is_processable, not_processable_reason = self._is_processable()
-        if is_processable:
-            self._do_processing()
-        self.after_processing(is_processable, not_processable_reason)
+        raise NotImplementedError
     
-    def queue(self):
-        is_queuable, not_queuable_reason = self._is_queuable()
-        self.before_queuing(is_queuable, not_queuable_reason)
-        if is_queuable:
-            utils.defer_reddit(self._process)
+    def run(self):
+        self._queue()
 
 
 class CommentProcessor(ItemProcessor):
@@ -184,23 +185,27 @@ class CommentProcessor(ItemProcessor):
     def _update_records(self):
         raise NotImplementedError
     
-    def before_queuing(self, is_queuable, not_queuable_reason):
-        error = getattr(not_queuable_reason, 'name', None)
-        if not is_queuable and self._message:
+    def _queue(self):
+        error = self._is_queuable.reason_not
+        
+        if self._is_queuable:
+            utils.defer_reddit(self._process)
+        elif self._message:
             utils.defer_reddit(self._reply_to_message, error)
     
     @ndb.transactional
-    def after_processing(self, is_processable, not_processable_reason):
-        error = getattr(not_processable_reason, 'name', None)
+    def _process(self):
+        error = self._is_processable.reason_not
+        
         if self._message:
             utils.defer_reddit(self._reply_to_message, error)
-        if is_processable or not self._message:
+        
+        if self._is_processable or not self._message:
             utils.defer_reddit(self._reply_to_comment, error)
-    
-    @ndb.transactional
-    def _do_processing(self):
-        self._update_records()
-        self._update_reddit()
+        
+        if self._is_processable:
+            self._update_records()
+            self._update_reddit()
 
 
 class DeltaAdder(CommentProcessor):
@@ -212,20 +217,6 @@ class DeltaAdder(CommentProcessor):
     
     COMMENT_TEMPLATE = 'comments/delta_adder.md'
     MESSAGE_TEMPLATE = 'messages/delta_adder.md'
-    
-    NotQueuableReason = Enum('NotQueuableReason', [
-        'no_author',
-        'no_token',
-    ])
-    
-    NotProcessableReason = Enum('NotProcessableReason', [
-        'already_awarded',
-        'awardee_is_awarder',
-        'awardee_is_deltabot',
-        'awardee_is_op',
-        'no_explanation',
-        'toplevel_comment',
-    ])
     
     def __init__(self, awarder_comment, message=None, force=False):
         super(DeltaAdder, self).__init__(awarder_comment, message)
@@ -255,15 +246,15 @@ class DeltaAdder(CommentProcessor):
             submission_url=self._awarder_comment.link_url)
         delta.put()
     
-    def _is_queuable(self):
+    def _check_queuable(self):
         if not self._awarder_comment.author:
-            return False, self.NotQueuableReason.no_author
+            return 'no_author'
         elif not self._has_delta_token() and not self._force:
-            return False, self.NotQueuableReason.no_token
+            return 'no_token'
         else:
-            return True, None
+            return None
     
-    def _is_processable(self):
+    def _check_processable(self):
         awarder_username = self._awarder_comment.author.name
         awardee_username = self._awardee_comment.author.name
         op_username = self._awarder_comment.link_author
@@ -277,44 +268,38 @@ class DeltaAdder(CommentProcessor):
         
         # Conditions order important
         if already_awarded_qry.get(keys_only=True):
-            return False, self.NotProcessableReason.already_awarded
+            return 'already_awarded'
         elif self._awarder_comment.is_root:
-            return False, self.NotProcessableReason.toplevel_comment
+            return 'toplevel_comment'
         
         # These three are mutually exclusive, so the order doesn't matter
         elif self._awardee_comment.author.name == awarder_username:
-            return False, self.NotProcessableReason.awardee_is_awarder
+            return 'awardee_is_awarder'
         elif self._awardee_comment.author.name == config.BOT_USERNAME:
-            return False, self.NotProcessableReason.awardee_is_deltabot
+            return 'awardee_is_deltabot'
         elif self._awardee_comment.author.name == op_username:
-            return False, self.NotProcessableReason.awardee_is_op
+            return 'awardee_is_op'
         
         elif (self._awarder_comment.body.strip() == config.DELTA and
               not self._force):
-            return False, self.NotProcessableReason.no_explanation
+            return 'no_explanation'
         else:
-            return True, None
+            return None
 
 
 class DeltaApprover(CommentProcessor):
-    NotProcessableReason = Enum('NotProcessableReason', [
-        'already_removed',
-        'is_approved',
-        'no_record',
-    ])
+    def _check_queuable(self):
+        return None
     
-    def _is_queuable(self):
-        return True, None
-    
-    def _is_processable(self):
+    def _check_processable(self):
         if not self._stored_delta:
-            return False, self.NotProcessableReason.no_record
-        elif stored_delta.removed_reason:
-            return False, self.NotProcessableReason.already_removed
-        elif stored_delta.is_approved:
-            return False, self.NotProcessableReason.is_approved
+            return 'no_record'
+        elif (self._stored_delta.status or '').startswith('removed'):
+            return 'already_removed'
+        elif self._stored_delta.status == 'approved':
+            return 'is_approved'
         else:
-            return True, None
+            return None
     
     def _update_records(self):
         self._stored_delta.status = 'approved'
@@ -328,38 +313,33 @@ class DeltaRemover(CommentProcessor):
     COMMENT_TEMPLATE = 'comments/delta_remover.md'
     MESSAGE_TEMPLATE = 'messages/delta_remover.md'
     
-    NotProcessableReason = Enum('NotProcessableReason', [
-        'already_removed',
-        'is_approved',
-        'no_record',
-    ])
     
     def __init__(self, awarder_comment, removal_reason, message=None):
         super(DeltaRemover, self).__init__(awarder_comment, message)
         self._removal_reason = removal_reason
     
     def _is_queuable(self):
-        return True, None
+        return None
     
     def _is_processable(self):
         if not self._stored_delta:
-            return False, self.NotProcessableReason.no_record
+            return 'no_record'
         elif (self._stored_delta.status or '').startswith('removed'):
-            return False, self.NotProcessableReason.already_removed
+            return 'already_removed'
         elif self._stored_delta.status == 'approved':
-            return False, self.NotProcessableReason.is_approved
+            return 'is_approved'
         else:
-            return True, None
+            return None
     
     def _update_records(self):
         self._stored_delta.status = 'removed_' + self._removal_reason
         self._stored_delta.put()
     
     @ndb.transactional
-    def _do_processing(self):
-        super(DeltaRemover, self)._do_processing()
+    def _process(self):
+        super(DeltaRemover, self)._process()
         
-        if self._removal_reason == 'remind':
+        if self._is_processable and self._removal_reason == 'remind':
             reply_text = utils.render_template('comments/remind.md')
             utils.defer_reddit(self._awarder_comment.reply, reply_text)
 
@@ -373,33 +353,21 @@ class CommandMessageProcessor(ItemProcessor):
         'remove low effort': '_cmd_remove_low_effort',
         'remove remind': '_cmd_remove_remind',
     }
-    
-    NotQueuableReason = Enum('NotQueuableReason', [
-        'no_author',
-        'not_incoming',
-        'system_message',
-    ])
-    
-    NotProcessableReason = Enum('NotProcessableReason', [
-        'command_not_found',
-        'command_unknown',
-        'not_a_mod',
-    ])
 
     def __init__(self, message):
         self._message = message
     
     def _cmd_approve(self):
         delta_approver = DeltaApprover(self._comment, self._message)
-        delta_approver.queue()
+        delta_approver.run()
     
     def _cmd_force_add(self):
         delta_adder = DeltaAdder(self._comment, self._message, force=True)
-        delta_adder.queue()
+        delta_adder.run()
     
     def _remove(self, reason):
         delta_remover = DeltaRemover(self._comment, reason, self._message)
-        delta_remover.queue()
+        delta_remover.run()
     
     def _cmd_remove_abuse(self):
         self._remove('abuse')
@@ -413,10 +381,6 @@ class CommandMessageProcessor(ItemProcessor):
     def _get_command_name(self):
         subject = self._message.subject.strip()
         return str(subject) if subject in self.COMMANDS else None
-    
-    def _do_processing(self):
-        command_name = self._get_command_name()
-        getattr(self, self.COMMANDS[command_name])()
     
     @cached_property
     def _comment(self):
@@ -436,36 +400,38 @@ class CommandMessageProcessor(ItemProcessor):
         comment.link_url = submission.url
         return comment if comment else None
     
-    def _is_queuable(self):
+    def _check_queuable(self):
         if not self._message.author:  # message from sub(?)
-            return False, self.NotQueuableReason.no_author
+            return 'no_author'
         elif self._message.author.name == 'reddit':  # system message
-            return False, self.NotQueuableReason.system_message
+            return 'system_message'
         elif (not self._message.dest or
                   self._message.dest != config.BOT_USERNAME):
-            return False, self.NotQueuableReason.not_incoming
+            return 'not_incoming'
         else:
-            return True, None
+            return None
     
-    def _is_processable(self):
+    def _check_processable(self):
         r = utils.get_reddit()
         moderators = r.get_moderators(config.SUBREDDIT)
         moderator_usernames = set(moderator.name for moderator in moderators)
         
         if self._message.author.name not in moderator_usernames:
-            return False, self.NotProcessableReason.not_a_mod
+            return 'not_a_mod'
         elif not self._get_command_name():
-            return False, self.NotProcessableReason.command_unknown
+            return 'command_unknown'
         elif not self._comment:
-            return False, self.NotProcessableReason.comment_not_found
+            return 'comment_not_found'
         else:
-            return True, None
+            return None
     
-    def after_processing(self, is_processable, not_processable_reason):
-        if not is_processable:
-            reply_text = utils.render_template('message.md',
-                                               error=not_processable_reason)
-            self._message.reply(reply_text)
+    def _process(self):
+        if self._processable:
+            command_name = self._get_command_name()
+            getattr(self, self.COMMANDS[command_name])()
+        else:
+            error = self._is_processable.reason_not
+            reply_text = utils.render_template('message.md', error=error)
 
 
 class ItemsConsumer(object):
@@ -490,7 +456,7 @@ class ItemsConsumer(object):
         already_processed = utils.KVStore_exists(processed_key)
         if not already_processed:
             processor = self.PROCESSOR(item)
-            processor.queue()
+            processor.run()
         utils.KVStore_set(self.PLACEHOLDER_KEY, item.id)
         utils.KVStore_set(self.PROCESSED_KEY.format(item.id))
     

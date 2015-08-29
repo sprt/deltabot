@@ -85,11 +85,6 @@ def render_template(filename, **vars):
     jinja_env.globals['config'] = config
     
     template = jinja_env.get_template(filename)
-    
-    for k, v in vars.iteritems():
-        if isinstance(v, Enum):
-            vars[k] = v.name
-    
     return template.render(**vars)
 
 
