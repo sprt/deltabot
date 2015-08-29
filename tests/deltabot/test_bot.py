@@ -17,6 +17,21 @@ config.DELTA_ALIASES = ('!plus',)
 config.SUBREDDIT = 'testsub'
 
 
+def _get_delta(**kwargs):
+    defaults = {
+        'awarded_at': datetime(1970, 1, 1),
+        'awarded_by': 'jane',
+        'awarded_to': 'john',
+        'awarder_comment_id': '000002',
+        'awarder_comment_url': 'http://example.com/comment',
+        'submission_id': '000001',
+        'submission_title': 'Foo',
+        'submission_url': 'http://example.com/submission',
+    }
+    defaults.update(**kwargs)
+    return utils.ndb_model(Delta, **defaults)
+
+
 reddit_test = patch('application.deltabot.utils.praw.Reddit')
 
 
@@ -56,15 +71,7 @@ class DatastoreTestMixin(object):
 
 class TestQueryUserDeltas(unittest.TestCase, DatastoreTestMixin):
     def setUp(self):
-        self.delta = utils.ndb_model(Delta,
-            awarded_at=datetime.now(),
-            awarded_by='foo',
-            awarded_to='john',
-            awarder_comment_id='foo',
-            awarder_comment_url='foo',
-            submission_id='foo',
-            submission_title='foo',
-            submission_url='foo')
+        self.delta = _get_delta(awarded_to='john')
     
     def test_delta_not_removed(self):
         self.delta.status = None
@@ -79,23 +86,16 @@ class TestQueryUserDeltas(unittest.TestCase, DatastoreTestMixin):
 
 @reddit_test
 class TestUpdateUserFlair(unittest.TestCase, DatastoreTestMixin):
+    def setUp(self):
+        self.delta = _get_delta(awarded_to='john')
+        self.delta.put()
+    
     def test_delta_count_non_null(self, reddit_class):
-        delta = utils.ndb_model(Delta,
-            awarded_at=datetime.now(),
-            awarded_by='foo',
-            awarded_to='john',
-            awarder_comment_id='foo',
-            awarder_comment_url='foo',
-            submission_id='foo',
-            submission_title='foo',
-            submission_url='foo')
-        delta.put()
-        
         bot.update_user_flair('john')
         assert reddit_class.return_value.set_flair.called
     
     def test_delta_count_null(self, reddit_class):
-        bot.update_user_flair('john')
+        bot.update_user_flair('jane')
         assert reddit_class.return_value.delete_flair.called
 
 
@@ -117,30 +117,15 @@ class TestUpdateSubmissionFlair(unittest.TestCase, DatastoreTestMixin):
 
 
 class TestGetUserDeltas(unittest.TestCase, DatastoreTestMixin):
+    def setUp(self):
+        self.delta1 = _get_delta(awarded_at=datetime(1970, 1, 1),
+                                 awarded_to='john')
+        self.delta2 = _get_delta(awarded_at=datetime(1970, 1, 2),
+                                 awarded_to='john')
+        ndb.put_multi([self.delta1, self.delta2])
+    
     def test_is_sorted(self):
-        delta1 = utils.ndb_model(Delta,
-            awarded_at=datetime(1970, 1, 1),
-            awarded_by='foo',
-            awarded_to='john',
-            awarder_comment_id='foo',
-            awarder_comment_url='foo',
-            submission_id='foo',
-            submission_title='foo',
-            submission_url='foo')
-        delta1.put()
-        
-        delta2 = utils.ndb_model(Delta,
-            awarded_at=datetime(1970, 1, 2),
-            awarded_by='foo',
-            awarded_to='john',
-            awarder_comment_id='foo',
-            awarder_comment_url='foo',
-            submission_id='foo',
-            submission_title='foo',
-            submission_url='foo')
-        delta2.put()
-        
-        assert bot._get_user_deltas('john') == [delta2, delta1]
+        assert bot._get_user_deltas('john') == [self.delta2, self.delta1]
 
 
 @reddit_test
@@ -150,30 +135,18 @@ class TestUpdateUserWikiPage(unittest.TestCase, DatastoreTestMixin):
         assert reddit_class.return_value.edit_wiki_page.called
 
 
-# XXX: can do better
 class TestGetDeltasGroupedByUsers(unittest.TestCase, DatastoreTestMixin):
+    def setUp(self):
+        self.delta1 = _get_delta(awarded_at=datetime(1970, 1, 1),
+                                 awarded_to='john')
+        self.delta2 = _get_delta(awarded_at=datetime(1970, 1, 2),
+                                 awarded_to='john')
+        self.delta3 = _get_delta(awarded_at=datetime(1970, 1, 1),
+                                 awarded_to='mary')
+        ndb.put_multi([self.delta1, self.delta2, self.delta3])
+    
     def test_is_grouped(self):
-        def make_delta(**kwargs):
-            defaults = {
-                'awarded_by': 'mary',
-                'awarder_comment_id': 'foo',
-                'awarder_comment_url': 'http://awardercomment/',
-                'submission_id': 'sbmsn',
-                'submission_title': 'Blah',
-                'submission_url': 'http://linkurl/',
-            }
-            delta = utils.ndb_model(Delta)
-            delta.populate(**defaults)
-            delta.populate(**kwargs)
-            return delta
-        
-        now = datetime.now()
-        delta1 = make_delta(awarded_at=now, awarded_to='jo')
-        delta2 = make_delta(awarded_at=now + timedelta(seconds=1), awarded_to='jo')
-        delta3 = make_delta(awarded_at=now, awarded_to='sally')
-        ndb.put_multi([delta1, delta2, delta3])
-        
-        assert bot._get_deltas_grouped_by_users() == [delta2, delta3]
+        assert bot._get_deltas_grouped_by_users() == [self.delta2, self.delta3]
 
 
 @reddit_test
