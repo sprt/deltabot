@@ -326,10 +326,10 @@ class DeltaRemover(CommentProcessor):
         super(DeltaRemover, self).__init__(awarder_comment, message)
         self._removal_reason = removal_reason
     
-    def _is_queuable(self):
+    def _check_queuable(self):
         return None
     
-    def _is_processable(self):
+    def _check_processable(self):
         if not self._stored_delta:
             return 'no_record'
         elif (self._stored_delta.status or '').startswith('removed'):
@@ -396,7 +396,7 @@ class CommandMessageProcessor(ItemProcessor):
         delta_adder.run()
     
     def _remove(self, reason):
-        delta_remover = DeltaRemover(self._comment, reason, self._message)
+        delta_remover = DeltaRemover(self._comment, self._message, reason)
         delta_remover.run()
     
     def _cmd_remove_abuse(self):
@@ -455,21 +455,23 @@ class CommandMessageProcessor(ItemProcessor):
         else:
             return None
     
+    def _reply_to_message(self, error):
+        reply_text = utils.render_template('messages/command.md', error=error)
+        self._message.reply(reply_text)
+    
     def _queue(self):
         error = self._is_queuable.reason_not
         
         if self._is_queuable:
             utils.defer_reddit(self._process)
-        else:
-            utils.defer_reddit(self._reply_to_message, error)
     
     def _process(self):
-        if self._processable:
+        if self._is_processable:
             command_name = self._get_command_name()
             getattr(self, self.COMMANDS[command_name])()
         else:
             error = self._is_processable.reason_not
-            reply_text = utils.render_template('message.md', error=error)
+            utils.defer_reddit(self._reply_to_message, error)
 
 
 class ItemsConsumer(object):
