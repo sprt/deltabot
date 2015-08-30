@@ -324,7 +324,7 @@ class DeltaRemover(CommentProcessor):
     COMMENT_TEMPLATE = 'comments/delta_remover.md'
     MESSAGE_TEMPLATE = 'messages/delta_remover.md'
     
-    def __init__(self, awarder_comment, removal_reason, message=None):
+    def __init__(self, awarder_comment, message, removal_reason):
         super(DeltaRemover, self).__init__(awarder_comment, message)
         self._removal_reason = removal_reason
     

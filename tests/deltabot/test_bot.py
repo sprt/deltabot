@@ -310,7 +310,7 @@ class TestDeltaRemover(unittest.TestCase, DatastoreTestMixin,
                        TaskQueueTestMixin):
     def setUp(self):
         awarder_comment = _get_comment(id='a')
-        self.processor = bot.DeltaRemover(awarder_comment, 'abuse')
+        self.processor = bot.DeltaRemover(awarder_comment, Mock(), 'abuse')
         self.processor._awardee_comment = _get_comment()
     
     def test_update_records(self, reddit_class):
