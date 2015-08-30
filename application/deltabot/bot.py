@@ -436,6 +436,14 @@ class CommandMessageProcessor(ItemProcessor):
         else:
             return None
     
+    def _queue(self):
+        error = self._is_queuable.reason_not
+        
+        if self._is_queuable:
+            utils.defer_reddit(self._process)
+        else:
+            utils.defer_reddit(self._reply_to_message, error)
+    
     def _process(self):
         if self._processable:
             command_name = self._get_command_name()
