@@ -339,6 +339,26 @@ class DeltaRemover(CommentProcessor):
         else:
             return None
     
+    def _reply_to_comment(self, error):
+        awardee_username = getattr(self._awarder_comment.author, 'name', None)
+        reply_text = utils.render_template(self.COMMENT_TEMPLATE,
+                                           awardee_username=awardee_username,
+                                           error=error,
+                                           removal_reason=self._removal_reason)
+        
+        reply = self._awarder_comment.reply(reply_text)
+        
+        try:
+            utils.defer_reddit(reply.distinguish)
+        except:
+            # If, for whatever reason, the defer() call fails, an exception
+            # will be thrown, causing this function to be retried, which means
+            # we'll end up double-posting.  To prevent that, just don't
+            # distinguish the comment if an exception is thrown.
+            # It's unlikely to happen but better be safe than sorry.
+            # XXX: We should probably find a workaround anyway.
+            logging.warning("Couldn't distinguish comment")
+    
     def _update_records(self):
         self._stored_delta.status = 'removed_' + self._removal_reason
         self._stored_delta.put()
@@ -349,6 +369,7 @@ class DeltaRemover(CommentProcessor):
         utils.defer_reddit(self._reply_to_message, error)
         
         if self._is_processable:
+            utils.defer_reddit(self._reply_to_comment, error)
             self._update_records()
             self._update_reddit()
 

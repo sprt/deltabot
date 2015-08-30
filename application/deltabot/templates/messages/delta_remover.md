@@ -1,7 +1,7 @@
 {% if error == 'already_removed' %}
-Already removed.
+Delta already removed.
 {% elif error == 'is_approved' %}
-Already approved.
+Delta already approved.
 {% elif error == 'no_record' %}
 No record of the delta in the database.
 {% else %}

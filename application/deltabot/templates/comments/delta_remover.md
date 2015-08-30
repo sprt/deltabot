@@ -1,5 +1,9 @@
 The delta awarded to /u/{{ awardee_username }} has been removed.
 
+{% if removal_reason == 'remind' %}
+blah blah
+{% endif %}
+
 ^([/u/{{ awardee_username }}'s delta history][user_delta_history] |)
 ^([Delta system explained][delta_system_explained])
 
