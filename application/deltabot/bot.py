@@ -459,12 +459,6 @@ class CommandMessageProcessor(ItemProcessor):
         reply_text = utils.render_template('messages/command.md', error=error)
         self._message.reply(reply_text)
     
-    def _queue(self):
-        error = self._is_queuable.reason_not
-        
-        if self._is_queuable:
-            utils.defer_reddit(self._process)
-    
     def _process(self):
         if self._is_processable:
             command_name = self._get_command_name()
