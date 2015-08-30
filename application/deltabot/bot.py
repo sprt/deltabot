@@ -288,6 +288,8 @@ class DeltaAdder(CommentProcessor):
 
 
 class DeltaApprover(CommentProcessor):
+    MESSAGE_TEMPLATE = 'messages/delta_approver.md'
+    
     def _check_queuable(self):
         return None
     
@@ -307,12 +309,20 @@ class DeltaApprover(CommentProcessor):
     
     def _update_reddit(self):
         pass
+    
+    @ndb.transactional
+    def _process(self):
+        error = self._is_processable.reason_not
+        utils.defer_reddit(self._reply_to_message, error)
+        
+        if self._is_processable:
+            self._update_records()
+            self._update_reddit()
 
 
 class DeltaRemover(CommentProcessor):
     COMMENT_TEMPLATE = 'comments/delta_remover.md'
     MESSAGE_TEMPLATE = 'messages/delta_remover.md'
-    
     
     def __init__(self, awarder_comment, removal_reason, message=None):
         super(DeltaRemover, self).__init__(awarder_comment, message)
@@ -337,6 +347,8 @@ class DeltaRemover(CommentProcessor):
     
     @ndb.transactional
     def _process(self):
+        # XXX
+        
         super(DeltaRemover, self)._process()
         
         if self._is_processable and self._removal_reason == 'remind':
@@ -353,7 +365,7 @@ class CommandMessageProcessor(ItemProcessor):
         'remove low effort': '_cmd_remove_low_effort',
         'remove remind': '_cmd_remove_remind',
     }
-
+    
     def __init__(self, message):
         self._message = message
     

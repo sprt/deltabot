@@ -96,11 +96,10 @@ def fullname_to_id(fullname):
 
 
 def get_comment_url(comment, context=None):
-    subreddit = str(comment.subreddit)
     submission_id = fullname_to_id(comment.link_id)
     
     url_tpl = 'https://www.reddit.com/r/{}/comments/{}/_/{}'
-    url = url_tpl.format(subreddit, submission_id, comment.id)
+    url = url_tpl.format(config.SUBREDDIT, submission_id, comment.id)
     
     if context:
         url += '?context={}'.format(context)

@@ -20,11 +20,11 @@ config.SUBREDDIT = 'testsub'
 def _get_delta(**kwargs):
     defaults = {
         'awarded_at': datetime(1970, 1, 1),
-        'awarded_by': 'jane',
-        'awarded_to': 'john',
+        'awarded_by': 'Jane',
+        'awarded_to': 'John',
         'awarder_comment_id': '000002',
         'awarder_comment_url': 'http://example.com/comment',
-        'submission_id': '000001',
+        'submission_id': '00000a',
         'submission_title': 'Foo',
         'submission_url': 'http://example.com/submission',
     }
@@ -32,7 +32,24 @@ def _get_delta(**kwargs):
     return utils.ndb_model(Delta, **defaults)
 
 
+def _get_comment(**kwargs):
+    defaults = {
+        'author.name': 'John',
+        'created_utc': 0.0,
+        'id': '00000b',
+        'link_id': '00000a',
+        'link_title': 'Foo',
+        'link_url': 'http://example.com/submission',
+    }
+    defaults.update(**kwargs)
+    comment = Mock()
+    comment.configure_mock(**defaults)
+    return comment
+
+
 reddit_test = patch('application.deltabot.utils.praw.Reddit')
+defer_reddit_test = patch('application.deltabot.utils.defer_reddit',
+                          side_effect=utils.defer_reddit)
 
 
 def init_datastore_stub(function):
@@ -156,6 +173,7 @@ class TestUpdateTrackerWikiPage(unittest.TestCase, DatastoreTestMixin):
         assert reddit_class.return_value.edit_wiki_page.called
 
 
+@defer_reddit_test
 @reddit_test
 class TestCommentProcessor(unittest.TestCase, DatastoreTestMixin,
                            TaskQueueTestMixin):
@@ -164,42 +182,63 @@ class TestCommentProcessor(unittest.TestCase, DatastoreTestMixin,
         self.message = Mock()
         self.processor = bot.DeltaAdder(self.awarder_comment, self.message)
     
-    def test_reply_to_comment(self, reddit_class):
+    def test_reply_to_comment(self, reddit_class, defer_func):
         bot.CommentProcessor._reply_to_comment(self.processor, None)
         assert self.awarder_comment.reply.called
         assert len(self.get_tasks()) == 1
     
-    def test_reply_to_message(self, reddit_class):
+    def test_reply_to_comment_defer_fails(self, reddit_class, defer_func):
+        defer_func.side_effect = Exception
+        try:
+            bot.CommentProcessor._reply_to_comment(self.processor, None)
+        except:
+            self.fail()
+    
+    def test_reply_to_message(self, reddit_class, defer_func):
         bot.CommentProcessor._reply_to_message(self.processor, None)
         assert self.message.reply.called
     
-    def test_update_reddit(self, reddit_class):
-        self.processor._awardee_comment = PickableMock()
+    def test_update_reddit(self, reddit_class, defer_func):
+        self.processor._awardee_comment = PickableMock(author=Mock())
+        self.processor._awardee_comment.author.configure_mock(name='john')
+        
         bot.CommentProcessor._update_reddit(self.processor)
-        assert len(self.get_tasks()) == 3
+        
+        defer_func.assert_any_call(bot.update_submission_flair,
+                                   self.awarder_comment)
+        defer_func.assert_any_call(bot.update_user_flair, 'john')
+        defer_func.assert_any_call(bot.update_user_wiki_page, 'john')
 
 
 @reddit_test
 class TestDeltaAdder(unittest.TestCase, DatastoreTestMixin,
                      TaskQueueTestMixin):
     def setUp(self):
-        self.awarder_comment = PickableMock(author=Mock(),
-                                            created_utc=0.0,
-                                            id='foo',
-                                            link_id='foo',
-                                            link_title='foo',
-                                            link_url='foo')
-        self.awarder_comment.author.configure_mock(name='foo')
-        self.message = Mock()
+        self.awarder_comment = _get_comment(created_utc=0.0,
+                                            id='y',
+                                            link_id='x',
+                                            link_title='Foo',
+                                            link_url='http://example.com/')
+        self.awarder_comment.author.name = 'John'
         
-        self.processor = bot.DeltaAdder(self.awarder_comment, self.message)
+        self.processor = bot.DeltaAdder(self.awarder_comment)
         
-        self.processor._awardee_comment = PickableMock(author=Mock(), id='foo')
-        self.processor._awardee_comment.author.configure_mock(name='foo')
+        self.processor._awardee_comment = _get_comment(id='x')
+        self.processor._awardee_comment.author.name = 'Jane'
     
     def test_update_records(self, reddit_class):
         self.processor._update_records()
-        assert utils.ndb_query(Delta).get()
+
+        delta = utils.ndb_query(Delta).get()
+        
+        assert delta.awarded_at == datetime(1970, 1, 1)
+        assert delta.awarded_by == 'John'
+        assert delta.awarded_to == 'Jane'
+        assert delta.awarder_comment_id == 'y'
+        assert delta.awarder_comment_url == ('https://www.reddit.com/r/'
+                                             'testsub/comments/x/_/y')
+        assert delta.submission_id == 'x'
+        assert delta.submission_title == 'Foo'
 
 
 class TestHasDeltaToken(unittest.TestCase):
@@ -247,6 +286,40 @@ class TestHasDeltaToken(unittest.TestCase):
         assert not self.check('\t+\nfoo')  # next line not empty
         
         assert self.check('\tfoo\n+')  # delta out of code
+
+
+@reddit_test
+class TestDeltaApprover(unittest.TestCase, DatastoreTestMixin,
+                        TaskQueueTestMixin):
+    def setUp(self):
+        awarder_comment = _get_comment(id='a')
+        self.processor = bot.DeltaApprover(awarder_comment)
+        self.processor._awardee_comment = _get_comment()
+    
+    def test_update_records(self, reddit_class):
+        delta = _get_delta(awarder_comment_id='a')
+        delta.put()
+        
+        self.processor._update_records()
+        
+        assert delta.status == 'approved'
+
+
+@reddit_test
+class TestDeltaRemover(unittest.TestCase, DatastoreTestMixin,
+                       TaskQueueTestMixin):
+    def setUp(self):
+        awarder_comment = _get_comment(id='a')
+        self.processor = bot.DeltaRemover(awarder_comment, 'abuse')
+        self.processor._awardee_comment = _get_comment()
+    
+    def test_update_records(self, reddit_class):
+        delta = _get_delta(awarder_comment_id='a')
+        delta.put()
+        
+        self.processor._update_records()
+        
+        assert delta.status == 'removed_abuse'    
 
 
 class ItemsConsumerMock(bot.ItemsConsumer):

@@ -6,7 +6,7 @@ from mock import Mock
 from application.deltabot import config
 from application.deltabot.utils import render_template
 
-config.SUBREDDIT = 'test'
+config.SUBREDDIT = 'testsub'
 
 
 def _get_template_double(path):
