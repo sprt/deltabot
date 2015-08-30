@@ -223,7 +223,6 @@ class DeltaAdder(CommentProcessor):
         self._force = force
     
     def _has_delta_token(self):
-        # XXX: ignore deltas between quotes?
         text = self._awarder_comment.body.expandtabs(4)
         text = self.RE_CODE_BLOCK.sub('', text)
         text = self.RE_BLOCK_QUOTE.sub('', text + '\n\n')[:-2]
@@ -259,7 +258,6 @@ class DeltaAdder(CommentProcessor):
         awardee_username = self._awardee_comment.author.name
         op_username = self._awarder_comment.link_author
         
-        # XXX: check same comment id?
         already_awarded_qry = utils.ndb_query(
             Delta,
             Delta.awarded_by == awarder_username,
