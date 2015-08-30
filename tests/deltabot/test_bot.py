@@ -228,7 +228,7 @@ class TestDeltaAdder(unittest.TestCase, DatastoreTestMixin,
     
     def test_update_records(self, reddit_class):
         self.processor._update_records()
-
+        
         delta = utils.ndb_query(Delta).get()
         
         assert delta.awarded_at == datetime(1970, 1, 1)
