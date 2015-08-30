@@ -347,13 +347,12 @@ class DeltaRemover(CommentProcessor):
     
     @ndb.transactional
     def _process(self):
-        # XXX
+        error = self._is_processable.reason_not
+        utils.defer_reddit(self._reply_to_message, error)
         
-        super(DeltaRemover, self)._process()
-        
-        if self._is_processable and self._removal_reason == 'remind':
-            reply_text = utils.render_template('comments/remind.md')
-            utils.defer_reddit(self._awarder_comment.reply, reply_text)
+        if self._is_processable:
+            self._update_records()
+            self._update_reddit()
 
 
 class CommandMessageProcessor(ItemProcessor):
