@@ -52,9 +52,9 @@ def update_submission_flair(awarder_comment):
 def _get_user_deltas(username):
     qry = _query_user_deltas(username)
     deltas = qry.fetch()
-    # Have to sort manually since NDB requires that the first sort
-    # property must be the same as the property to which the inequality
-    # filter is applied.
+    # Have to sort manually since NDB requires that the first sort property
+    # must be the same as the property to which the inequality filter is
+    # applied.
     deltas.sort(key=attrgetter('awarded_at'), reverse=True)
     return deltas
 
