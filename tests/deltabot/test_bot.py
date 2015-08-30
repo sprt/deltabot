@@ -199,8 +199,8 @@ class TestCommentProcessor(unittest.TestCase, DatastoreTestMixin,
         assert self.message.reply.called
     
     def test_update_reddit(self, reddit_class, defer_func):
-        self.processor._awardee_comment = PickableMock(author=Mock())
-        self.processor._awardee_comment.author.configure_mock(name='john')
+        self.processor._awardee_comment = PickableMock()
+        self.processor._awardee_comment.author.name = 'john'
         
         bot.CommentProcessor._update_reddit(self.processor)
         
