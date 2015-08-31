@@ -35,6 +35,7 @@ def _get_delta(**kwargs):
 def _get_comment(**kwargs):
     defaults = {
         'author.name': 'John',
+        'body': '+ Genius!',
         'created_utc': 0.0,
         'id': '00000b',
         'link_id': '00000a',
@@ -214,8 +215,11 @@ class TestCommentProcessor(unittest.TestCase, DatastoreTestMixin,
 class TestDeltaAdder(unittest.TestCase, DatastoreTestMixin,
                      TaskQueueTestMixin):
     def setUp(self):
-        self.awarder_comment = _get_comment(created_utc=0.0,
+        self.awarder_comment = _get_comment(body='+ Genius!',
+                                            created_utc=0.0,
                                             id='y',
+                                            is_root=False,
+                                            link_author='Adam',
                                             link_id='x',
                                             link_title='Foo',
                                             link_url='http://example.com/')
@@ -225,6 +229,58 @@ class TestDeltaAdder(unittest.TestCase, DatastoreTestMixin,
         
         self.processor._awardee_comment = _get_comment(id='x')
         self.processor._awardee_comment.author.name = 'Jane'
+    
+    def test_check_queuable_no_error(self, reddit_class):
+        assert self.processor._check_queuable() is None
+    
+    def test_check_queuable_no_author(self, reddit_class):
+        self.processor._awarder_comment.author = None
+        assert self.processor._check_queuable() == 'no_author'
+    
+    def test_check_queuable_no_token(self, reddit_class):
+        self.processor._awarder_comment.body = 'Genius!'
+        assert self.processor._check_queuable() == 'no_token'
+    
+    def test_check_queuable_no_token_force(self, reddit_class):
+        self.processor._force = True
+        self.processor._awarder_comment.body = 'Genius!'
+        assert self.processor._check_queuable() is None
+    
+    def test_check_processable_no_error(self, reddit_class):
+        assert self.processor._check_processable() is None
+    
+    def test_check_processable_already_awarded(self, reddit_class):
+        delta = _get_delta(awarded_by='John',
+                           awarded_to='Jane',
+                           submission_id='x')
+        delta.put()
+        
+        assert self.processor._check_processable() == 'already_awarded'
+    
+    def test_check_processable_toplevel_comment(self, reddit_class):
+        self.processor._awarder_comment.is_root = True
+        assert self.processor._check_processable() == 'toplevel_comment'
+    
+    def test_check_processable_awardee_is_awarder(self, reddit_class):
+        self.processor._awardee_comment.author.name = 'John'
+        assert self.processor._check_processable() == 'awardee_is_awarder'
+    
+    def test_check_processable_awardee_is_deltabot(self, reddit_class):
+        self.processor._awardee_comment.author.name = 'bot'
+        assert self.processor._check_processable() == 'awardee_is_deltabot'
+    
+    def test_check_processable_awardee_is_op(self, reddit_class):
+        self.processor._awardee_comment.author.name = 'Adam'
+        assert self.processor._check_processable() == 'awardee_is_op'
+    
+    def test_check_processable_no_explanation(self, reddit_class):
+        self.processor._awarder_comment.body = '+'
+        assert self.processor._check_processable() == 'no_explanation'
+    
+    def test_check_processable_no_explanation_force(self, reddit_class):
+        self.processor._force = True
+        self.processor._awarder_comment.body = '+'
+        assert self.processor._check_processable() is None
     
     def test_update_records(self, reddit_class):
         self.processor._update_records()
@@ -295,14 +351,31 @@ class TestDeltaApprover(unittest.TestCase, DatastoreTestMixin,
         awarder_comment = _get_comment(id='a')
         self.processor = bot.DeltaApprover(awarder_comment)
         self.processor._awardee_comment = _get_comment()
+        
+        self.delta = _get_delta(awarder_comment_id='a')
+        self.delta.put()
+        
+    def test_check_queuable(self, reddit_class):
+        assert self.processor._check_queuable() is None
+    
+    def test_check_processable_no_error(self, reddit_class):
+        assert self.processor._check_processable() is None
+    
+    def test_check_processable_no_record(self, reddit_class):
+        self.delta.key.delete()
+        assert self.processor._check_processable() == 'no_record'
+    
+    def test_check_processable_is_removed(self, reddit_class):
+        self.delta.status = 'removed_abuse'
+        assert self.processor._check_processable() == 'is_removed'
+    
+    def test_check_processable_already_approved(self, reddit_class):
+        self.delta.status = 'approved'
+        assert self.processor._check_processable() == 'already_approved'
     
     def test_update_records(self, reddit_class):
-        delta = _get_delta(awarder_comment_id='a')
-        delta.put()
-        
         self.processor._update_records()
-        
-        assert delta.status == 'approved'
+        assert self.delta.status == 'approved'
 
 
 @reddit_test
@@ -312,14 +385,32 @@ class TestDeltaRemover(unittest.TestCase, DatastoreTestMixin,
         awarder_comment = _get_comment(id='a')
         self.processor = bot.DeltaRemover(awarder_comment, Mock(), 'abuse')
         self.processor._awardee_comment = _get_comment()
+        
+        self.delta = _get_delta(awarder_comment_id='a')
+        self.delta.put()
     
+    def test_check_queuable(self, reddit_class):
+        assert self.processor._check_queuable() is None
+    
+    def test_check_processable_no_error(self, reddit_class):
+        assert self.processor._check_processable() is None
+    
+    def test_check_processable_no_record(self, reddit_class):
+        self.delta.key.delete()
+        assert self.processor._check_processable() == 'no_record'
+    
+    def test_check_processable_already_removed(self, reddit_class):
+        self.delta.status = 'removed_abuse'
+        assert self.processor._check_processable() == 'already_removed'
+    
+    def test_check_processable_is_approved(self, reddit_class):
+        self.delta.status = 'approved'
+        assert self.processor._check_processable() == 'is_approved'
+    
+    # TODO: test different reasons
     def test_update_records(self, reddit_class):
-        delta = _get_delta(awarder_comment_id='a')
-        delta.put()
-        
         self.processor._update_records()
-        
-        assert delta.status == 'removed_abuse'    
+        assert self.delta.status == 'removed_abuse'    
 
 
 class ItemsConsumerMock(bot.ItemsConsumer):

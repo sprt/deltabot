@@ -295,9 +295,9 @@ class DeltaApprover(CommentProcessor):
         if not self._stored_delta:
             return 'no_record'
         elif (self._stored_delta.status or '').startswith('removed'):
-            return 'already_removed'
+            return 'is_removed'
         elif self._stored_delta.status == 'approved':
-            return 'is_approved'
+            return 'already_approved'
         else:
             return None
     
