@@ -435,8 +435,7 @@ class CommandMessageProcessor(ItemProcessor):
             return 'no_author'
         elif self._message.author.name == 'reddit':  # system message
             return 'system_message'
-        elif (not self._message.dest or
-                  self._message.dest != config.BOT_USERNAME):
+        elif self._message.dest != config.BOT_USERNAME:
             return 'not_incoming'
         else:
             return None
