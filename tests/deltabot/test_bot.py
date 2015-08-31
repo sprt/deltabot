@@ -134,18 +134,29 @@ class TestUpdateUserFlair(unittest.TestCase, DatastoreTestMixin):
 @reddit_test
 class TestUpdateSubmissionFlair(unittest.TestCase, DatastoreTestMixin):
     def setUp(self):
-        self.comment = Mock()
-        self.comment.author.name = 'john'
+        self.comment = _get_comment()
+        self.comment.submission = Mock(id='x')
+        
+        self.delta = _get_delta(awarded_by='John', submission_id='x')
+        self.delta.put()
     
-    def test_delta_from_op(self, reddit_class):
-        self.comment.link_author = 'john'
+    def test_has_op_delta(self, reddit_class):
+        self.comment.submission.author.name = 'John'
+        
         bot.update_submission_flair(self.comment)
-        assert reddit_class.return_value.set_flair.called
+        
+        set_flair = reddit_class.return_value.set_flair
+        set_flair.assert_called_with(config.SUBREDDIT, self.comment.submission,
+                                     '[Deltas Awarded]', 'OPdelta')
     
-    def test_delta_not_from_op(self, reddit_class):
-        self.comment.link_author = 'jane'
+    def test_has_no_op_delta(self, reddit_class):
+        self.comment.submission.author.name = 'Jane'
+        
         bot.update_submission_flair(self.comment)
-        assert not reddit_class.return_value.set_flair.called
+        
+        set_flair = reddit_class.return_value.set_flair
+        set_flair.assert_called_with(config.SUBREDDIT, self.comment.submission,
+                                     None, None)
 
 
 class TestGetUserDeltas(unittest.TestCase, DatastoreTestMixin):

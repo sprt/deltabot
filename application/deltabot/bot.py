@@ -41,12 +41,18 @@ def update_submission_flair(awarder_comment):
     logging.debug('Updating flair of submission (comment {})'
                   .format(awarder_comment.id))
     
-    if awarder_comment.author.name != awarder_comment.link_author:
-        return
-    
     r = utils.get_reddit()
     submission = awarder_comment.submission
-    r.set_flair(config.SUBREDDIT, submission, '[Deltas Awarded]', 'OPdelta')
+    
+    qry = utils.ndb_query(Delta,
+                          Delta.awarded_by == submission.author.name,
+                          Delta.submission_id == submission.id)
+    qry_no_removed = Delta.filter_removed(qry)
+    has_op_delta = qry_no_removed.count(keys_only=True)
+    
+    flair_text = '[Deltas Awarded]' if has_op_delta else None
+    flair_class = 'OPdelta' if has_op_delta else None
+    r.set_flair(config.SUBREDDIT, submission, flair_text, flair_class)
 
 
 def _get_user_deltas(username):
