@@ -182,6 +182,7 @@ class CommentProcessor(ItemProcessor):
     
     @ndb.transactional
     def _update_reddit(self):
+        """If called, must do so after _update_records() call"""
         awarder_comment = self._awarder_comment
         awardee_username = self._awardee_comment.author.name
         utils.defer_reddit(update_submission_flair, awarder_comment)
