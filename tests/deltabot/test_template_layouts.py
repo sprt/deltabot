@@ -31,7 +31,7 @@ def test_wiki_tracker_layout():
     delta = Mock(awarded_at=datetime(1970, 1, 1),
                  awarded_to='john',
                  awarder_comment_url='http://example.com/')
-    rendered_template = render_template('wiki/tracker.md', deltas=[delta] * 2)
+    rendered = render_template('wiki/tracker.md', deltas=[delta] * 2)
     assert rendered == get_template_double('wiki_tracker.md')
 
 
