@@ -431,7 +431,9 @@ class CommandMessageProcessor(ItemProcessor):
         return comment if comment else None
     
     def _check_queuable(self):
-        if not self._message.author:  # message from sub(?)
+        if self._message.subreddit:
+            return 'modmail'
+        elif not self._message.author:  # message from sub(?)
             return 'no_author'
         elif self._message.author.name == 'reddit':  # system message
             return 'system_message'

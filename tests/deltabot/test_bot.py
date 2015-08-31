@@ -54,6 +54,7 @@ def _get_message(**kwargs):
         'body': 'http://example.com/comment',
         'dest': config.BOT_USERNAME,
         'subject': 'force add',
+        'subreddit': None,
     }
     defaults.update(**kwargs)
     message = Mock()
@@ -434,6 +435,10 @@ class TestCommandMessageProcessor(unittest.TestCase):
     
     def test_check_queuable_no_error(self, reddit_class):
         assert self.processor._check_queuable() is None
+    
+    def test_check_queuable_modmail(self, reddit_class):
+        self.processor._message.subreddit = 'foo'
+        assert self.processor._check_queuable() == 'modmail'
     
     def test_check_queuable_no_author(self, reddit_class):
         self.processor._message.author = None
