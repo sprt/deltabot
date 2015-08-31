@@ -21,10 +21,9 @@ def test_wiki_user_layout():
                  awarded_by='mary',
                  awarder_comment_url='http://example.com/',
                  submission_title='foo')
-    rendered_template = render_template('wiki/user_history.md',
-                                        username='john',
-                                        deltas=[delta] * 2)
-    assert rendered_template == get_template_double('user_wiki.md')
+    rendered = render_template('wiki/user_history.md', username='john',
+                               deltas=[delta] * 2)
+    assert rendered == get_template_double('user_wiki.md')
 
 
 def test_wiki_tracker_layout():
@@ -33,7 +32,7 @@ def test_wiki_tracker_layout():
                  awarded_to='john',
                  awarder_comment_url='http://example.com/')
     rendered_template = render_template('wiki/tracker.md', deltas=[delta] * 2)
-    assert rendered_template == get_template_double('wiki_tracker.md')
+    assert rendered == get_template_double('wiki_tracker.md')
 
 
 class TemplateTest(unittest.TestCase):
