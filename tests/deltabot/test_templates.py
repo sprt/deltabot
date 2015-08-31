@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import unittest
 
 from mock import Mock
 
@@ -35,18 +36,39 @@ def test_wiki_tracker_layout():
     assert rendered_template == _get_template_double('wiki_tracker.md')
 
 
-def test_comment_valid_delta_layout():
-    """Test the comments/delta.md with a valid delta"""
-    rendered_template = render_template('comments/delta_adder.md',
-                                        error=None,
-                                        awardee_username='john')
-    assert rendered_template == _get_template_double('valid_delta.md')
+class TemplateTest(unittest.TestCase):
+    TEMPLATE_FILENAME = None
+    
+    def render_template(self, **kwargs):
+        return render_template(self.TEMPLATE_FILENAME, **kwargs)
 
 
-def test_comment_invalid_delta_layout():
-    """Test the comments/delta.md with an invalid delta"""
-    rendered_template = render_template(
-        'comments/delta_adder.md',
-        awardee_username='john',
-        error='already_awarded')
-    assert rendered_template == _get_template_double('invalid_delta.md')
+class TestDeltaAdderCommentTemplate(TemplateTest):
+    TEMPLATE_FILENAME = 'comments/delta_adder.md'
+    
+    def test_no_error(self):
+        rendered = self.render_template(error=None, awardee_username='John')
+        expected = _get_template_double('comments/delta_adder_no_error.md')
+        assert rendered == expected
+    
+    def test_error(self):
+        rendered = self.render_template(error='already_awarded',
+                                        awardee_username='John')
+        expected = _get_template_double('comments/delta_adder_error.md')
+        assert rendered == expected
+
+
+class TestDeltaRemoverCommentTemplate(TemplateTest):
+    TEMPLATE_FILENAME = 'comments/delta_remover.md'
+    
+    def test_remind(self):
+        rendered = self.render_template(error=None, awardee_username='John',
+                                        removal_reason='remind')
+        expected = _get_template_double('comments/delta_remover_remind.md')
+        assert rendered == expected
+    
+    def test_not_remind(self):
+        rendered = self.render_template(error=None, awardee_username='John',
+                                        removal_reason='abuse')
+        expected = _get_template_double('comments/delta_remover_not_remind.md')
+        assert rendered == expected
