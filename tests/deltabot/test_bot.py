@@ -48,6 +48,19 @@ def _get_comment(**kwargs):
     return comment
 
 
+def _get_message(**kwargs):
+    defaults = {
+        'author.name': 'John',
+        'body': 'http://example.com/comment',
+        'dest': config.BOT_USERNAME,
+        'subject': 'force add',
+    }
+    defaults.update(**kwargs)
+    message = Mock()
+    message.configure_mock(**defaults)
+    return message
+
+
 reddit_test = patch('application.deltabot.utils.praw.Reddit')
 defer_reddit_test = patch('application.deltabot.utils.defer_reddit',
                           side_effect=utils.defer_reddit)
@@ -411,6 +424,28 @@ class TestDeltaRemover(unittest.TestCase, DatastoreTestMixin,
     def test_update_records(self, reddit_class):
         self.processor._update_records()
         assert self.delta.status == 'removed_abuse'    
+
+
+@reddit_test
+class TestCommandMessageProcessor(unittest.TestCase):
+    def setUp(self):
+        self.message = _get_message()
+        self.processor = bot.CommandMessageProcessor(self.message)
+    
+    def test_check_queuable_no_error(self, reddit_class):
+        assert self.processor._check_queuable() is None
+    
+    def test_check_queuable_no_author(self, reddit_class):
+        self.processor._message.author = None
+        assert self.processor._check_queuable() == 'no_author'
+    
+    def test_check_queuable_system_message(self, reddit_class):
+        self.processor._message.author.name = 'reddit'
+        assert self.processor._check_queuable() == 'system_message'
+    
+    def test_check_queuable_not_incoming(self, reddit_class):
+        self.processor._message.dest = '#subreddit'
+        assert self.processor._check_queuable() == 'not_incoming'
 
 
 class ItemsConsumerMock(bot.ItemsConsumer):
