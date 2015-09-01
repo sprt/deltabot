@@ -26,7 +26,6 @@ def defer(callable, *args, **kwargs):
     deferred.defer(callable, *args, **kwargs)
 
 
-# XXX: minimum delay?
 defer_reddit = partial(defer, _queue='reddit')
 
 
