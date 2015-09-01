@@ -35,4 +35,3 @@ skip_files:
 - ^(.*/)?.*\.dist-info$
 - ^lib/(pip|py|setuptools|tox|virtualenv(_support)?)(-|/)
 - ^lib/(easy_install|pkg_resources|pluggy)\.py
-- ^lib-test
