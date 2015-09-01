@@ -17,10 +17,6 @@ class Delta(ndb.Model):
         'removed_low_effort',
         'removed_remind',
     ])
-    
-    @property
-    def is_removed(self):
-        return self.removed_why is not None
 
 
 class KeyValueStore(ndb.Model):
