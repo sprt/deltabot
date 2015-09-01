@@ -1,6 +1,7 @@
 queue:
 # TODO: default
-# min retry=1s
 - name: reddit
   rate: 1/s
   max_concurrent_requests: 1
+  retry_parameters:
+    min_backoff_seconds: 1
