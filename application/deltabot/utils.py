@@ -59,7 +59,7 @@ def get_reddit():
         KVStore_set('access_info', str(new_access_info))
         KVStore_set('access_info_last_refresh', now.strftime(dt_format))
     
-    r = praw.Reddit(config.USER_AGENT, site_name='dev')
+    r = praw.Reddit(config.USER_AGENT, config.REDDIT_SITE)
     
     access_info_last_refresh_str = KVStore_get('access_info_last_refresh')
     if access_info_last_refresh_str:

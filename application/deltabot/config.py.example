@@ -5,7 +5,10 @@ BOT_USERNAME = 'mybot'
 DELTA = u'∆'
 DELTA_ALIASES = ('!delta',)
 
-if os.environ['REDDIT_SITE'] == 'prod':
+IS_DEV = os.environ.get('SERVER_SOFTWARE', '').startswith('Development')
+REDDIT_SITE = 'prod' if not IS_DEV else 'dev'
+
+if REDDIT_SITE == 'prod':
     SUBREDDIT = 'yoursub'
     USER_AGENT = 'Delta/1.0 (by /u/you)'
     OAUTH_REFRESH_TOKEN = 'XXXXX'
