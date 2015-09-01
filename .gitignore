@@ -59,5 +59,6 @@ target/
 *.sublime-workspace
 *.sublime-project
 
+praw.ini
 application/deltabot/config.py
 lib
