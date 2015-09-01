@@ -14,8 +14,8 @@ from .models import Delta
 
 
 def _query_user_deltas(username):
-    qry = utils.ndb_query(Delta, Delta.awarded_to == username)
-    return Delta.filter_removed(qry)
+    return utils.query_delta(Delta.awarded_to == username,
+                             include_removed=False)
 
 
 def _get_user_delta_count(username):
@@ -44,11 +44,10 @@ def update_submission_flair(awarder_comment):
     r = utils.get_reddit()
     submission = awarder_comment.submission
     
-    qry = utils.ndb_query(Delta,
-                          Delta.awarded_by == submission.author.name,
-                          Delta.submission_id == submission.id)
-    qry_no_removed = Delta.filter_removed(qry)
-    has_op_delta = qry_no_removed.count(keys_only=True)
+    qry = utils.query_delta(Delta.awarded_by == submission.author.name,
+                            Delta.submission_id == submission.id,
+                            include_removed=False)
+    has_op_delta = qry.count(keys_only=True)
     
     flair_text = '[Deltas Awarded]' if has_op_delta else None
     flair_class = 'OPdelta' if has_op_delta else None
@@ -78,10 +77,10 @@ def update_user_wiki_page(username):
 
 
 def _get_deltas_grouped_by_users():
-    all_deltas_qry = utils.ndb_query(Delta).order(-Delta.awarded_at)
+    qry = utils.query_delta(include_removed=False)
     deltas_by_user = {}
     
-    for delta in all_deltas_qry:
+    for delta in qry:
         user_delta = deltas_by_user.get(delta.awarded_to)
         if not user_delta or user_delta.awarded_at < delta.awarded_at:
             deltas_by_user[delta.awarded_to] = delta
@@ -151,7 +150,8 @@ class CommentProcessor(ItemProcessor):
     @cached_property
     def _stored_delta(self):
         comment_id = self._awarder_comment.id
-        qry = utils.ndb_query(Delta, Delta.awarder_comment_id == comment_id)
+        qry = utils.query_delta(Delta.awarder_comment_id == comment_id,
+                                include_removed=True)
         return qry.get()
     
     def _reply_to_comment(self, error):
@@ -265,11 +265,11 @@ class DeltaAdder(CommentProcessor):
         awardee_username = self._awardee_comment.author.name
         op_username = self._awarder_comment.link_author
         
-        already_awarded_qry = utils.ndb_query(
-            Delta,
+        already_awarded_qry = utils.query_delta(
             Delta.awarded_by == awarder_username,
             Delta.awarded_to == awardee_username,
-            Delta.submission_id == self._submission_id)
+            Delta.submission_id == self._submission_id,
+            include_removed=False)
         
         # Conditions order important
         if already_awarded_qry.get(keys_only=True):

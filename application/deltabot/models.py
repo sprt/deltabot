@@ -21,12 +21,6 @@ class Delta(ndb.Model):
     @property
     def is_removed(self):
         return self.removed_why is not None
-    
-    @classmethod
-    def filter_removed(cls, qry):
-        return qry.filter(cls.status != 'removed_abuse',
-                          cls.status != 'removed_low_effort',
-                          cls.status != 'removed_remind')
 
 
 class KeyValueStore(ndb.Model):

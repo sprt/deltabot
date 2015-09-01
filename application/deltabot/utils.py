@@ -10,7 +10,7 @@ from jinja2 import Environment, FileSystemLoader
 import praw
 
 from . import config
-from .models import KeyValueStore
+from .models import Delta, KeyValueStore
 
 _NDB_ANCESTOR = ndb.Key('_dummy', 1)
 
@@ -38,6 +38,15 @@ def ndb_query(model, *args, **kwargs):
 def ndb_model(model, *args, **kwargs):
     kwargs['parent'] = _NDB_ANCESTOR
     return model(*args, **kwargs)
+
+
+def query_delta(*args, **kwargs):
+    qry = ndb_query(Delta)
+    if not kwargs['include_removed']:
+        qry = qry.filter(Delta.status != 'removed_abuse',
+                         Delta.status != 'removed_low_effort',
+                         Delta.status != 'removed_remind')
+    return qry.filter(*args)
 
 
 @ndb.transactional
