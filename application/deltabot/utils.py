@@ -3,7 +3,6 @@ from functools import partial
 import os
 import re
 
-from enum import Enum
 from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 from jinja2 import Environment, FileSystemLoader

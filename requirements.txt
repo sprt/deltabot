@@ -1,5 +1,4 @@
 cached-property==1.2.0
-enum34==1.0.4
 Flask==0.10.1
 Jinja2==2.7.3
 praw==2.1.21

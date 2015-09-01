@@ -5,9 +5,7 @@ import re
 import threading
 
 from cached_property import cached_property
-from enum import Enum
 from google.appengine.ext import ndb
-from praw.objects import Submission
 
 from . import config, utils
 from .models import Delta
@@ -468,8 +466,6 @@ class CommandMessageProcessor(ItemProcessor):
         self._message.reply(reply_text)
     
     def _queue(self):
-        error = self._is_queuable.reason_not
-        
         if self._is_queuable:
             utils.defer_reddit(self._process)
     

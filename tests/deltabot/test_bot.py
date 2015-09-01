@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-from threading import Lock
 import unittest
 
 from google.appengine.datastore import datastore_stub_util
-from google.appengine.ext import deferred, ndb, testbed
-from mock import call, patch, MagicMock, Mock
+from google.appengine.ext import ndb
+from mock import patch, MagicMock, Mock
 
 from application.deltabot import config, utils
 from application.deltabot import bot
@@ -435,7 +434,7 @@ class TestDeltaRemover(unittest.TestCase, DatastoreTestMixin,
     # TODO: test different reasons
     def test_update_records(self, reddit_class):
         self.processor._update_records()
-        assert self.delta.status == 'removed_abuse'    
+        assert self.delta.status == 'removed_abuse'
 
 
 @reddit_test
@@ -494,7 +493,6 @@ class TestItemsConsumer(unittest.TestCase, DatastoreTestMixin,
     
     def test_process_item_not_already_processed(self):
         self.consumer._process_item(Mock(id='a'))
-        taskqueue_stub = self.testbed.get_stub('taskqueue')
         assert self.consumer.PROCESSOR.return_value.run.called
     
     def test_process_item_already_processed(self):
