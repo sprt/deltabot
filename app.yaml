@@ -31,8 +31,7 @@ skip_files:
 - ^(.*/)?.*\.py[co]$
 - ^(.*/)?.*/RCS/.*$
 - ^(.*/)?\..*$
-- ^(.*/)?.*\.egg-info$
-- ^(.*/)?.*\.dist-info$
-- ^lib/(pip|py|setuptools|tox|virtualenv(_support)?)(-|/)
-- ^lib/(easy_install|pkg_resources|pluggy)\.py
+- ^(.*/)?.*\.(dist|egg)-info$
 - ^tests/
+- ^lib/(easy_install|pkg_resources|pluggy|pip|py|setuptools|tox|wheel)[./]
+- ^lib/virtualenv
