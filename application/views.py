@@ -1,4 +1,5 @@
 from . import app
+from .deltabot import config
 from .deltabot.bot import CommentsConsumer, MessagesConsumer
 from .deltabot.utils import defer_reddit
 
@@ -20,7 +21,8 @@ def consume_comments():
 def consume_messages():
     messages_consumer = MessagesConsumer()
     # TODO: no retry
-    defer_reddit(messages_consumer.run)
+    countdown = 0 if config.IS_DEV else 600
+    defer_reddit(messages_consumer.run, _countdown=countdown)
     return 'Task enqueued'
 
 

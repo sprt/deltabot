@@ -1,3 +1,5 @@
 cron:
 - url: /crons/consumecomments
-  schedule: every 10 minutes synchronized
+  schedule: every 20 minutes synchronized
+- url: /crons/consumemessages
+  schedule: every 20 minutes synchronized
