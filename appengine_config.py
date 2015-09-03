@@ -1,8 +1,8 @@
-# import os
+import os
 
 from google.appengine.ext import vendor
 
-vendor.add('lib')
+vendor.add(os.path.join(os.path.dirname(__file__), 'lib'))
 
 appstats_TZOFFSET = -2 * 3600
 appstats_SHELL_OK = True
