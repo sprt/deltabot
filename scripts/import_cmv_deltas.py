@@ -302,7 +302,6 @@ def main():
     print '{} user pages'.format(len(usernames))
     
     START = 0
-    progress = 1
     
     for i, username in enumerate(usernames[START:]):
         i += START
@@ -314,8 +313,6 @@ def main():
         except OAuthInvalidToken:
             r.refresh_access_information()
             usernames.insert(i + 1, username)
-        else:
-            progress += 1
     
     print datetime.utcnow().isoformat()
 
