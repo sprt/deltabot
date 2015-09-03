@@ -12,7 +12,6 @@ oauth_client_id=
 oauth_client_secret=
 oauth_redirect_uri=
 ssl_domain=ssl.reddit.com
-user_agent=
 
 [prod]
 domain=www.reddit.com
@@ -21,4 +20,3 @@ oauth_client_id=
 oauth_client_secret=
 oauth_redirect_uri=
 ssl_domain=ssl.reddit.com
-user_agent=
