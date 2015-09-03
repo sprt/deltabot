@@ -5,7 +5,7 @@ BOT_USERNAME = 'mybot'
 DELTA = u'∆'
 DELTA_ALIASES = ('!delta',)
 
-IS_DEV = os.environ.get('SERVER_SOFTWARE', '').startswith('Development')
+IS_DEV = (os.environ.get('SERVER_SOFTWARE', '') != 'Google Frontend')
 REDDIT_SITE = 'prod' if not IS_DEV else 'dev'
 
 if REDDIT_SITE == 'prod':
