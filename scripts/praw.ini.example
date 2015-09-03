@@ -1,0 +1,14 @@
+[DEFAULT]
+api_request_delay=1.0
+cache_timeout=0
+check_for_updates=no
+decode_html_entities=yes
+
+[dev]
+domain=www.reddit.com
+log_requests=0
+oauth_domain=oauth.reddit.com
+oauth_client_id=
+oauth_client_secret=
+oauth_redirect_uri=
+ssl_domain=ssl.reddit.com

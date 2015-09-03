@@ -15,6 +15,7 @@ handlers:
 builtins:
 - appstats: on
 - deferred: on
+- remote_api: on
 
 inbound_services:
 - warmup
