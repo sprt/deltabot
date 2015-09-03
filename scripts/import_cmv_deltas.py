@@ -155,7 +155,7 @@ def search_deltas_thread(submission_url, awardee_username):
     parsed_deltas = []
     
     submission = Submission.from_url(r, submission_url, comment_limit=None)
-    submission.replace_more_comments(limit=None, threshold=1)
+    submission.replace_more_comments(limit=16, threshold=1)
     
     keyphrase = 'delta awarded to /u/{}'.format(awardee_username).lower()
     
