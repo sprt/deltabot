@@ -43,6 +43,21 @@ from application.deltabot.models import Delta
 from application.deltabot.utils import get_reddit, ndb_model
 
 
+class Unbuffered(object):
+    def __init__(self, stream):
+        self.stream = stream
+    
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+    
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
+
+sys.stdout = Unbuffered(sys.stdout)
+
+
 def warning_on_one_line(message, category, filename, lineno, file=None,
                         line=None):
     return ('{filename}:{lineno}: {category.__name__}: {message}\n'
@@ -50,8 +65,6 @@ def warning_on_one_line(message, category, filename, lineno, file=None,
 
 
 warnings.formatwarning = warning_on_one_line
-
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 r = get_reddit()
 r.refresh_access_information()
@@ -301,18 +314,22 @@ def main():
     
     print '{} user pages'.format(len(usernames))
     
-    START = 0
+    try:
+        i = int(sys.argv[1])
+    except IndexError:
+        i = 0
     
-    for i, username in enumerate(usernames[START:]):
-        i += START
+    while i < len(usernames):
+        username = usernames[i] 
         print '{}/{}...'.format(i, len(usernames) - 1)
         try:
             process_user(username)
         except HTTPError:
-            usernames.insert(i + 1, username)
+            pass
         except OAuthInvalidToken:
             r.refresh_access_information()
-            usernames.insert(i + 1, username)
+        else:
+            i += 1
     
     print datetime.utcnow().isoformat()
 
