@@ -33,3 +33,4 @@ skip_files:
 - ^tests/
 - ^lib/(easy_install|pkg_resources|pluggy|pip|py|setuptools|tox|wheel)[./]
 - ^lib/virtualenv
+- ^(.*/)?.*.example$
